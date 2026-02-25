@@ -12,7 +12,6 @@ void sleep(int seconds) {
 }
 
 int main() {
-    #ifdef _WIN32
     INT rc;
     WSADATA wsaData;
 
@@ -21,9 +20,8 @@ int main() {
         printf("WSAStartup Failed.\n");
         return 1;
     }
-    #endif
 
-    const std::string uri = "ws://localhost:6123";
+    std::string const uri = "ws://localhost:6123";
 
     while (true) {
         WebSocket::pointer ws = WebSocket::from_url(uri);
