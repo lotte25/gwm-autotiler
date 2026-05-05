@@ -1,12 +1,10 @@
 #include <chrono>
+#include <print>
 #include <iostream>
-#include <winerror.h>
-#include <Windows.h>
 #include <thread>
-#include "easywsclient.hpp"
+#include <Windows.h>
+#include <wsx/Client.hpp>
 #include "json.hpp"
-
-using easywsclient::WebSocket;
 
 void sleep(int seconds) {
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
@@ -20,52 +18,77 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    std::string const uri = "ws://localhost:6123";
+    if (std::string(lpCmdLine) == "console") {
+        if (AllocConsole()) {
+            FILE* fp;
+            freopen_s(&fp, "CONOUT$", "w", stdout);
+            freopen_s(&fp, "CONOUT$", "w", stderr);
+            freopen_s(&fp, "CONIN$", "r", stdin);
+        }
+    }
+
+    std::string const url = "ws://127.0.0.1:6123";
+    std::unique_ptr<wsx::Client> client;
 
     while (true) {
-        WebSocket::pointer ws = WebSocket::from_url(uri);
-        if (!ws) {
-            std::cerr << "Couldn't connect to GlazeWM, retrying in 5 seconds" << std::endl;
+        auto result = wsx::connect(url);
+        if (!result) {
+            std::println("Connection failed, will retry in 5 seconds: {}", result.unwrapErr());
             sleep(5);
             continue;
         }
-        
-        std::cout << "Connected successfully." << std::endl;
-        ws->send("sub -e focus_changed -e focused_container_moved -e window_managed");
 
-        while (ws->getReadyState() != WebSocket::CLOSED) {
-            ws->poll();
-            ws->dispatch([ws](std::string const& message) {
-                auto json = nlohmann::json::parse(message);
-                auto event = json["data"];
-    
-                if (event.empty() || event["focusedContainer"].empty()) {
-                    return;
-                }
-    
-                auto container = event["focusedContainer"];
-                int width = container["width"];
-                int height = container["height"];
-    
-                if (width == 0 || height == 0) return;
-    
-                std::string command = "command set-tiling-direction ";
-                command.append(width > height ? "horizontal" : "vertical");
-    
-                ws->send(command);
-            });
-    
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        client = std::make_unique<wsx::Client>(std::move(result).unwrap());
+        auto sendResult = client->send("sub -e focus_changed -e focused_container_moved -e window_managed");
+        if (!sendResult) {
+            std::println("Subscription failed: {}", sendResult.unwrapErr());
+            break;
         }
 
-        delete ws;
-        ws = nullptr;
+        while (client->isConnected()) {
+            auto recvResult = client->recv();
+            if (!recvResult) {
+                std::println("Receive failed: {}", recvResult.unwrapErr());
+                break;
+            }
+
+            wsx::Message msg = std::move(recvResult).unwrap();
+            auto json = nlohmann::json::parse(msg.text());
+            auto event = json["data"];
+
+            if (event.empty() || event["focusedContainer"].empty()) {
+                continue;
+            }
+
+            auto container = event["focusedContainer"];
+            int width = container["width"];
+            int height = container["height"];
+
+            if (width == 0 || height == 0) continue;
+
+            std::string command = "command set-tiling-direction ";
+            std::string direction = width > height ? "horizontal" : "vertical";
+            command.append(direction);
+
+            auto sendResult = client->send(command);
+            if (!sendResult) {
+                std::println("Send failed: {}", sendResult.unwrapErr());
+                break;
+            }
+
+            std::println("Changing direction to {}", direction);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
         std::cout << "Lost connection, will retry in 3 seconds" << std::endl;
         sleep(3);
     }
 
+    // if it fails it's whatever i think
+    (void)client->close();
+    client.reset();
+    FreeConsole();
     ReleaseMutex(hMutex);
     CloseHandle(hMutex);
-    WSACleanup();
     return 0;
 }

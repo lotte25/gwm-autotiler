@@ -4,5 +4,5 @@ Written in C++ because i didn't like needing python for autotiling... or Rust to
 ![Preview](preview.png)
 
 ## Dependencies
-- [easywsclient](https://github.com/dhbaird/easywsclient): old but works fine.
+- [wsx](https://github.com/dankmeme01/wsx) thank you dankmeme
 - [nlohmann/json](https://github.com/nlohmann/json)
