@@ -14,14 +14,9 @@ void sleep(int seconds) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     HANDLE hMutex = CreateMutex(NULL, TRUE, "gwm-autotiler");
-    if (GetLastError() == ERROR_ALREADY_EXISTS) return 1;
-
-    INT rc;
-    WSADATA wsaData;
-
-    rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (rc) {
-        printf("WSAStartup Failed.\n");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        HWND hwnd = GetConsoleWindow();
+        MessageBoxA(hwnd, "The program is already open.", "Error", MB_ICONERROR | MB_OK);
         return 1;
     }
 
