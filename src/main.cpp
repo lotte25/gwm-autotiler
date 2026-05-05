@@ -11,7 +11,7 @@ void sleep(int seconds) {
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }
 
-int main() {
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     INT rc;
     WSADATA wsaData;
 
