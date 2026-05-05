@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <winerror.h>
 #include <Windows.h>
 #include <thread>
 #include "easywsclient.hpp"
@@ -12,6 +13,9 @@ void sleep(int seconds) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+    HANDLE hMutex = CreateMutex(NULL, TRUE, "gwm-autotiler");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) return 1;
+
     INT rc;
     WSADATA wsaData;
 
@@ -65,6 +69,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         sleep(3);
     }
 
+    ReleaseMutex(hMutex);
+    CloseHandle(hMutex);
     WSACleanup();
     return 0;
 }
